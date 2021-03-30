@@ -7,6 +7,7 @@ import assert from "assert";
 import fs from "fs";
 import child_process from "child_process";
 import commander from "commander";
+import * as applicationInsights from "applicationinsights";
 import { Loader } from "@fluidframework/container-loader";
 import { IFluidCodeDetails } from "@fluidframework/core-interfaces";
 import {
@@ -89,6 +90,8 @@ async function load(loginInfo: IOdspTestLoginInfo, url: string) {
 }
 
 async function main(this: any) {
+    applicationInsights.setup().start();
+
     commander
         .version("0.0.1")
         .requiredOption("-t, --tenant <tenant>", "Which test tenant info to use from testConfig.json", "fluidCI")
@@ -180,18 +183,35 @@ async function runnerProcess(
     runId: number,
     url: string,
 ): Promise<number> {
+    const client = applicationInsights.defaultClient;
+
+    client.trackMetric({name: "Test Client Started", value: 1});
+    client.trackTrace({message: `${runId} Starting client with url: ${url}`});
+
     try {
         const runConfig: IRunConfig = {
             runId,
             testConfig: profile,
         };
         const stressTest = await load(loginInfo, url);
+
         await stressTest.run(runConfig);
         console.log(`${runId.toString().padStart(3)}> exit`);
+
+        client.trackTrace({message: `Completed client with url: ${url}`});
+        client.trackMetric({name: "Test Client Successful", value: 1});
+
+        client.flush();
         return 0;
     } catch (e) {
         console.error(`${runId.toString().padStart(3)}> error: loading test`);
         console.error(e);
+
+        client.trackTrace({message: `${runId} Error: ${e}`});
+        client.trackException({exception: e});
+        client.trackMetric({name: "Test Client Error", value: 1});
+
+        client.flush({isAppCrashing: true});
         return -1;
     }
 }
@@ -214,6 +234,10 @@ async function orchestratorProcess(
     const numDoc = args.numDoc === undefined ? 1 : args.numDoc;
     const podId = args.podId === undefined ? 1 : args.podId;
     console.log(`You are in orchestratorProcess ${numDoc}`);
+
+    const client = applicationInsights.defaultClient;
+    client.trackTrace({message: `Started Orchestrator Process. Docs: ${numDoc}`});
+
     // const driveIds: string[] = [];
     // const docUrls: string[] = [];
     // let odspTokens: IOdspTokens;
@@ -249,13 +273,13 @@ async function orchestratorProcess(
     const p: Promise<void>[] = [];
     let cnt = 0;
     let offset = Math.floor((podId - 1) / 10) * numDoc;
-    offset = offset % 300; // totalDocUrls are 300
+    offset = args.urlList === undefined ? 0 : (offset % args.urlList.length);
     const leftIndex = offset;
     const rightIndex = offset + numDoc;
-    const urls: string[] | undefined = args.urlList?.slice(leftIndex,rightIndex);
+    const urls: string[] | undefined = args.urlList?.slice(leftIndex, rightIndex);
     let randomOrderUrls: string[] = [];
     if (urls !== undefined) {
-        randomOrderUrls = urls.sort((a, b) => -1 - Math.random());
+        randomOrderUrls = urls.sort((a, b) => 0.5 - Math.random());
     }
     for (let docIndex = 0; docIndex < numDoc; docIndex++) {
         const url = args.urlList === undefined ? "NoUrl" : randomOrderUrls[docIndex];
@@ -277,12 +301,37 @@ async function orchestratorProcess(
             // 9229 is the default and will be used for the root orchestrator process
             childArgs.unshift(`--inspect-brk=${debugPort}`);
         }
-        const process = child_process.spawn(
-            "node",
-            childArgs,
-            { stdio: "inherit" },
-        );
-        p.push(new Promise((resolve) => process.on("close", resolve)));
+
+        try {
+            const process = child_process.spawn(
+                "node",
+                childArgs,
+                { stdio: "inherit" },
+            );
+
+            process.on("exit", (code, signal) => {
+                client.trackTrace({ message: `Client exited. Code: ${code} Signal: ${signal} Url: ${url}` });
+                client.flush();
+            });
+            process.on("error", (err) => {
+                console.error("Error in child process.");
+                console.error(err);
+
+                client.trackTrace({ message: `Client exited with error. Url: ${url} Error: ${err}` });
+                client.flush();
+            });
+
+            client.trackTrace({ message: `Started client process. Url: ${url}` });
+            p.push(new Promise((resolve) => process.on("close", resolve)));
+        } catch (e) {
+            console.error("Error in starting child process.");
+            console.error(e);
+
+            client.trackTrace({ message: `Error in starting test. Url: ${url}` });
+            client.trackException({ exception: e });
+        }
+
+        client.flush();
         cnt = (cnt + 1) % 10;
     }
     await Promise.all(p);
@@ -296,6 +345,7 @@ async function orchestratorProcess(
     console.log(`Start Time : ${startDatetime}`);
     console.log(`End Time : ${endDatetime}`);
 
+    client.flush();
     return 0;
 }
 
