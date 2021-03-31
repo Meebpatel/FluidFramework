@@ -206,7 +206,7 @@ async function runnerProcess(
     url: string,
 ): Promise<number> {
     telemetryClient.trackMetric({name: "Test Client Started", value: 1});
-    telemetryClient.trackTrace({message: `${runId} Starting test client with url: ${url}`});
+    telemetryClient.trackTrace({message: `${runId}> Starting test client with url: ${url}`});
 
     try {
         const runConfig: IRunConfig = {
@@ -219,7 +219,7 @@ async function runnerProcess(
         console.log(`${runId.toString().padStart(3)}> exit`);
 
         telemetryClient.trackMetric({name: "Test Client Successful", value: 1});
-        telemetryClient.trackTrace({message: `${runId} Completed test client with url: ${url}`});
+        telemetryClient.trackTrace({message: `${runId}> Completed test client with url: ${url}`});
 
         return EXIT_ERROR.SUCCESS;
     } catch (e) {
@@ -227,7 +227,7 @@ async function runnerProcess(
         console.error(e);
 
         telemetryClient.trackMetric({name: "Test Client Error", value: 1});
-        telemetryClient.trackTrace({message: `${runId} Error in test client url: ${url} Error: ${e}`});
+        telemetryClient.trackTrace({message: `${runId}> Error in test client url: ${url} Error: ${e}`});
         telemetryClient.trackException({exception: e});
 
         return EXIT_ERROR.CLIENT_ERROR;
