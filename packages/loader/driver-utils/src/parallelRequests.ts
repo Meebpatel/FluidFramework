@@ -392,7 +392,7 @@ async function getSingleOpBatch(
 
             if (lastSuccessTime === undefined) {
                 lastSuccessTime = Date.now();
-            } else if (Date.now() - lastSuccessTime > 30000) {
+            } else if (Date.now() - lastSuccessTime > 10000) {
                 // If we are connected and receiving proper responses from server, but can't get any ops back,
                 // then give up after some time. This likely indicates the issue with ordering service not flushing
                 // ops to storage quick enough, and possibly waiting for summaries, while summarizer can't get

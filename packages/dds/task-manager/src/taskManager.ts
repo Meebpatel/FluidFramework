@@ -165,9 +165,8 @@ export class TaskManager extends SharedObject<ITaskManagerEvents> implements ITa
         this.opWatcher.on("volunteer", (taskId: string, clientId: string, local: boolean, messageId: number) => {
             if (local) {
                 const pendingOp = this.latestPendingOps.get(taskId);
-                assert(pendingOp !== undefined, 0x07b /* "Unexpected op" */);
                 // Need to check the id, since it's possible to volunteer and abandon multiple times before the acks
-                if (messageId === pendingOp.messageId) {
+                if (pendingOp !== undefined && messageId === pendingOp.messageId) {
                     assert(pendingOp.type === "volunteer", 0x07c /* "Unexpected op type" */);
                     // Delete the pending, because we no longer have an outstanding op
                     this.latestPendingOps.delete(taskId);
@@ -180,9 +179,8 @@ export class TaskManager extends SharedObject<ITaskManagerEvents> implements ITa
         this.opWatcher.on("abandon", (taskId: string, clientId: string, local: boolean, messageId: number) => {
             if (local) {
                 const pendingOp = this.latestPendingOps.get(taskId);
-                assert(pendingOp !== undefined, 0x07d /* "Unexpected op" */);
                 // Need to check the id, since it's possible to abandon and volunteer multiple times before the acks
-                if (messageId === pendingOp.messageId) {
+                if (pendingOp !== undefined && messageId === pendingOp.messageId) {
                     assert(pendingOp.type === "abandon", 0x07e /* "Unexpected op type" */);
                     // Delete the pending, because we no longer have an outstanding op
                     this.latestPendingOps.delete(taskId);

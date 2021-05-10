@@ -21,13 +21,13 @@ function printStatus(runConfig: IRunConfig, message: string) {
     if(runConfig.verbose) {
         console.log(`${runConfig.runId.toString().padStart(3)}> ${message}`);
     }else{
-        process.stdout.write(".");
+        // process.stdout.write(".");
     }
 }
 
 function printProgress(runConfig: IRunConfig) {
     if(!runConfig.verbose) {
-        process.stdout.write(".");
+        // process.stdout.write(".");
     }
 }
 
