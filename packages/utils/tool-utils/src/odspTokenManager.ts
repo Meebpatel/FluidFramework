@@ -55,6 +55,10 @@ export interface IOdspTokenManagerCacheKey {
 }
 
 const isValidToken = (token: string) => {
+    if (!token || token.length === 0) {
+        return false;
+    }
+
     const decodedToken = jwtDecode<any>(token);
     // Give it a 60s buffer
     return (decodedToken.exp - 60 >= (new Date().getTime() / 1000));
@@ -197,6 +201,7 @@ export class OdspTokenManager {
                             await this.updateTokensCacheWithoutLock(cacheKey, newToken);
                             return newToken;
                         } catch (error) {
+                            debug(`Error in refreshing token. ${error}`);
                         }
                     } else {
                         debug(`${cacheKeyToString(cacheKey)}: Token reused from locked cache `);
